@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ziyo Edu — O'quv Markazi Platformasi</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .phone-frame { width: 390px; height: 800px; border: 12px solid #0f172a; border-radius: 48px; overflow: hidden; background: #f8fafc; box-shadow: 0 25px 60px -15px rgba(15,23,42,0.5); }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+  <header class="bg-slate-900 text-white px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 z-50">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-extrabold text-sm">Z</div>
+      <span class="font-bold text-sm">ZIYO EDU</span>
+      <span id="backendStatusBadge" class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold">🔒 Backend Protected</span>
+    </div>
+    <div class="flex items-center gap-1.5 bg-slate-800 p-1 rounded-xl">
+      <button onclick="setViewMode('desktop')" id="btnDesktop" class="px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white">💻 Web Sayt</button>
+      <button onclick="setViewMode('mobile')" id="btnMobile" class="px-3 py-1 rounded-lg text-xs font-semibold text-slate-300">📱 Mobil Ilova</button>
+    </div>
+    <div id="topUserArea" class="hidden items-center gap-3">
+      <span id="topUserName" class="text-xs font-semibold text-slate-200"></span>
+      <button onclick="logout()" class="text-xs bg-rose-600 hover:bg-rose-500 text-white px-3 py-1 rounded-lg font-bold">Chiqish</button>
+    </div>
+  </header>
+
+  <div id="loginScreen" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-40 flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
+      <div class="bg-gradient-to-br from-indigo-600 to-violet-800 p-7 text-white text-center">
+        <div class="text-3xl mb-2">🎓</div>
+        <h1 class="text-2xl font-extrabold">Ziyo Edu Platformasi</h1>
+        <p class="text-xs text-indigo-100 mt-1">Direktor: Zokirova Munisa</p>
+      </div>
+      <form onsubmit="handleLogin(event)" class="p-7 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Login</label>
+          <input id="loginInput" type="text" required placeholder="Loginingizni kiriting" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Maxfiy Parol</label>
+          <input id="passwordInput" type="password" required placeholder="••••••••" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm" />
+        </div>
+        <div id="loginError" class="hidden text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-xl p-3 text-center"></div>
+        <button type="submit" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm">Tizimga kirish →</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="mainWrapper" class="flex-1 flex items-center justify-center">
+    <div id="appContainer" class="w-full min-h-[calc(100vh-48px)] bg-slate-50 flex flex-col md:flex-row">
+      <aside id="desktopSidebar" class="w-64 bg-white border-r border-slate-200 p-5 flex flex-col justify-between shrink-0">
+        <div class="space-y-6">
+          <div class="p-3.5 rounded-2xl bg-slate-900 text-white">
+            <div class="text-[11px] text-indigo-300 font-bold uppercase" id="sideRoleBadge">Foydalanuvchi</div>
+            <div class="font-bold text-sm truncate mt-0.5" id="sideUserName">—</div>
+            <div class="text-[11px] text-slate-400 mt-0.5" id="sideUserSub">—</div>
+          </div>
+          <nav id="sideNav" class="space-y-1.5"></nav>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-indigo-50 border border-indigo-100 text-xs">
+          <div class="font-bold text-indigo-950">Direktor: Zokirova Munisa</div>
+          <div class="text-indigo-700 text-[11px]">Tel: +998 90 100 00 01</div>
+        </div>
+      </aside>
+      <main class="flex-1 flex flex-col overflow-y-auto pb-20 md:pb-6">
+        <div id="pageContent" class="p-4 md:p-7 max-w-6xl w-full mx-auto space-y-6"></div>
+      </main>
+      <nav id="mobileBottomNav" class="hidden bg-white border-t border-slate-200 px-2 py-1.5 justify-around items-center shrink-0"></nav>
+    </div>
+  </div>
+
+  <script>
+    // Render.com da ham, localhostda ham avtomatik ishlaydigan nisbiy manzil
+    const API_BASE = '/api';
+    let currentUser = null;
+    let activeTab = 'dashboard';
+    let appState = { staff: [], students: [], tickets: [] };
+
+    const courses = [
+      { title: 'Frontend & Web Dasturlash', teacher: 'Ustoz: Jamshid Nurboboyev', days: 'Du - Cho - Ju • 15:00', room: '2-xona (Web Lab)', price: "850 000 so'm" },
+      { title: 'IELTS & General English', teacher: 'Ustoz: Sardor Alimov', days: 'Se - Pa - Sha • 14:00', room: '4-xona (Oxford)', price: "750 000 so'm" },
+      { title: 'Matematika & Mantiq', teacher: 'Ustoz: Malika Karimova', days: 'Du - Cho - Ju • 10:00', room: '1-xona (Al-Xorazmiy)', price: "650 000 so'm" },
+      { title: 'Python Backend Dasturlash', teacher: 'Ustoz: Bobur Tursunov', days: 'Se - Pa - Sha • 17:00', room: '3-xona (Code Pro)', price: "900 000 so'm" }
+    ];
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const login = document.getElementById('loginInput').value.trim();
+      const password = document.getElementById('passwordInput').value.trim();
+      const errBox = document.getElementById('loginError');
+      errBox.classList.add('hidden');
+
+      try {
+        const res = await fetch(API_BASE + '/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ login, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Xatolik');
+        const dataRes = await fetch(API_BASE + '/data?role=' + data.user.role);
+        appState = await dataRes.json();
+        completeLogin(data.user);
+      } catch (err) {
+        errBox.textContent = "Login yoki parol noto'g'ri!";
+        errBox.classList.remove('hidden');
+      }
+    }
+
+    function completeLogin(user) {
+      currentUser = user;
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('topUserArea').classList.remove('hidden');
+      document.getElementById('topUserArea').classList.add('flex');
+      document.getElementById('topUserName').textContent = user.name;
+      document.getElementById('sideRoleBadge').textContent = user.role.toUpperCase();
+      document.getElementById('sideUserName').textContent = user.name;
+      document.getElementById('sideUserSub').textContent = user.subject || user.title || user.group || '';
+      activeTab = 'dashboard';
+      renderNavigation();
+      renderPage();
+    }
+
+    function logout() {
+      currentUser = null;
+      document.getElementById('loginScreen').classList.remove('hidden');
+      document.getElementById('topUserArea').classList.add('hidden');
+    }
+
+    function getNavItems() {
+      const items = [
+        { id: 'dashboard', label: 'Asosiy oyna', icon: '🏠' },
+        { id: 'courses', label: 'Darslar va Ustozlar', icon: '📚' },
+        { id: 'rating', label: 'Reyting', icon: '🏆' }
+      ];
+      if (currentUser && ['director', 'admin', 'teacher'].includes(currentUser.role)) {
+        items.push({ id: 'journal', label: 'Baho & Jurnal', icon: '📝' });
+      }
+      items.push(
+        { id: 'support', label: 'Murojaat & Savol-Javob', icon: '💬' },
+        { id: 'center', label: 'Markaz haqida', icon: '🏛️' }
+      );
+      return items;
+    }
+
+    function renderNavigation() {
+      const items = getNavItems();
+      document.getElementById('sideNav').innerHTML = items.map(item => `
+        <button onclick="switchTab('${item.id}')" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold ${activeTab === item.id ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}">
+          <span>${item.icon}</span><span>${item.label}</span>
+        </button>`).join('');
+      document.getElementById('mobileBottomNav').innerHTML = items.map(item => `
+        <button onclick="switchTab('${item.id}')" class="flex flex-col items-center py-1 px-2 text-[10px] font-bold ${activeTab === item.id ? 'text-indigo-600' : 'text-slate-400'}">
+          <span class="text-base">${item.icon}</span><span>${item.label.split(' ')[0]}</span>
+        </button>`).join('');
+    }
+
+    function switchTab(id) { activeTab = id; renderNavigation(); renderPage(); }
+
+    function setViewMode(mode) {
+      const wrapper = document.getElementById('mainWrapper');
+      const container = document.getElementById('appContainer');
+      const sidebar = document.getElementById('desktopSidebar');
+      const mobNav = document.getElementById('mobileBottomNav');
+      if (mode === 'mobile') {
+        wrapper.className = 'flex-1 flex items-center justify-center p-4 bg-slate-900';
+        container.className = 'phone-frame flex flex-col justify-between';
+        sidebar.classList.add('hidden');
+        mobNav.classList.remove('hidden'); mobNav.classList.add('flex');
+      } else {
+        wrapper.className = 'flex-1 flex items-center justify-center';
+        container.className = 'w-full min-h-[calc(100vh-48px)] bg-slate-50 flex flex-col md:flex-row';
+        sidebar.classList.remove('hidden');
+        mobNav.classList.add('hidden'); mobNav.classList.remove('flex');
+      }
+    }
+
+    function renderPage() {
+      const c = document.getElementById('pageContent');
+      const isStaff = ['director', 'admin', 'teacher'].includes(currentUser.role);
+      if (activeTab === 'dashboard') {
+        c.innerHTML = `<div class="bg-slate-900 rounded-3xl p-6 text-white"><h2 class="text-2xl font-extrabold">Xush kelibsiz, ${currentUser.name}!</h2><p class="text-xs text-slate-300 mt-1">Direktor: Zokirova Munisa • Jami o'quvchilar: ${appState.students.length} nafar</p></div>`;
+      } else if (activeTab === 'courses') {
+        c.innerHTML = `<h2 class="text-xl font-extrabold">📚 Darslar va Ustozlar</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-4">${courses.map(x => `<div class="bg-white p-5 rounded-2xl border"><div class="font-extrabold">${x.title}</div><div class="text-xs font-bold text-indigo-600 mt-1">${x.teacher}</div><div class="text-xs text-slate-500 mt-1">${x.days} • ${x.room}</div></div>`).join('')}</div>`;
+      } else if (activeTab === 'rating') {
+        const sorted = [...appState.students].sort((a,b) => b.xp - a.xp);
+        c.innerHTML = `<h2 class="text-xl font-extrabold">🏆 Reyting</h2><div class="bg-white rounded-2xl border">${sorted.map((s,i) => `<div class="flex justify-between p-3 border-b text-xs"><span><b>${i+1}. ${s.name}</b> (${s.group})</span><span class="font-bold text-indigo-600">${s.xp} XP (${s.grade} ball)</span></div>`).join('')}</div>`;
+      } else if (activeTab === 'journal' && isStaff) {
+        c.innerHTML = `<h2 class="text-xl font-extrabold">📝 Baholar Jurnali</h2><div class="bg-white rounded-2xl border overflow-x-auto"><table class="w-full text-xs text-left"><thead class="bg-slate-50 border-b"><tr><th class="p-3">O'quvchi</th><th class="p-3">Guruh</th><th class="p-3">Baho</th></tr></thead><tbody>${appState.students.map(s => `<tr class="border-b"><td class="p-3 font-bold">${s.name}</td><td class="p-3">${s.group}</td><td class="p-3"><input type="number" value="${s.grade}" onchange="updateStudent('${s.id}', this.value)" class="w-16 border rounded px-2 py-1 text-center font-bold"/></td></tr>`).join('')}</tbody></table></div>`;
+      } else if (activeTab === 'support') {
+        c.innerHTML = `<h2 class="text-xl font-extrabold">💬 Murojaat va Savol-Javob</h2><form onsubmit="submitTicket(event)" class="bg-white p-4 rounded-2xl border space-y-2"><select id="ticketTarget" class="w-full border rounded-xl p-2 text-xs font-bold"><option>Admin (Xolmatova Dilnoza)</option><option>Direktor (Zokirova Munisa)</option><option>Ustoz Jamshid Nurboboyev</option></select><textarea id="ticketQuestion" required placeholder="Savolingizni yozing..." class="w-full border rounded-xl p-2 text-xs"></textarea><button class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold">Yuborish</button></form><div class="space-y-2">${appState.tickets.map(t => `<div class="bg-white p-4 rounded-2xl border text-xs"><div class="font-bold">${t.fromName} → ${t.target}</div><p class="mt-1">${t.question}</p>${t.answer ? `<div class="mt-2 p-2 bg-emerald-50 rounded text-emerald-800"><b>Javob:</b> ${t.answer}</div>` : ''}</div>`).join('')}</div>`;
+      } else if (activeTab === 'center') {
+        c.innerHTML = `<h2 class="text-xl font-extrabold">🏛️ Markaz Rahbariyati</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs"><div class="bg-white p-5 rounded-2xl border"><div class="text-indigo-600 font-bold">DIREKTOR</div><div class="text-base font-extrabold mt-1">Zokirova Munisa</div></div><div class="bg-white p-5 rounded-2xl border"><div class="text-emerald-600 font-bold">ADMINISTRATOR</div><div class="text-base font-extrabold mt-1">Xolmatova Dilnoza</div></div></div>`;
+      }
+    }
+
+    async function updateStudent(id, grade) {
+      await fetch(API_BASE + '/students/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ grade: Number(grade) }) });
+      const dataRes = await fetch(API_BASE + '/data?role=' + currentUser.role);
+      appState = await dataRes.json();
+      renderPage();
+    }
+
+    async function submitTicket(e) {
+      e.preventDefault();
+      const target = document.getElementById('ticketTarget').value;
+      const question = document.getElementById('ticketQuestion').value;
+      await fetch(API_BASE + '/tickets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fromName: currentUser.name, fromRole: currentUser.role, target, question }) });
+      const dataRes = await fetch(API_BASE + '/data?role=' + currentUser.role);
+      appState = await dataRes.json();
+      renderPage();
+    }
+  </script>
+</body>
+</html>
